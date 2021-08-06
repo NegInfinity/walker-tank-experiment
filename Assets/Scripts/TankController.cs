@@ -948,6 +948,8 @@ public class TankController : MonoBehaviour{
 		yield return tankShiftLeg(rel, legIndex, new Vector3(0.0f, 0.0f, zAdd), time);
 	}
 
+	[SerializeField] bool enableCoroutineController = true;
+
 	IEnumerator controlCoroutine(){
 		if (!legRFTarget || !legRF.footRoot.obj ||
 			!legRBTarget || !legRB.footRoot.obj ||
@@ -1001,7 +1003,7 @@ public class TankController : MonoBehaviour{
 
 		var relIk = new LegRelIk(legSideOffset, legForwardOffset, legBackOffset, legHeight);
 		setLegIkRelative(relIk);
-		yield return new WaitForSeconds(2.0f);
+		yield return new WaitForSeconds(2.0f); 
 
 		var curHeight = legHeight;
 		yield return tankShiftY(relIk, -1.5f, 1.0f);
@@ -1029,12 +1031,7 @@ public class TankController : MonoBehaviour{
 
 		yield return tankShiftX(relIk, 1.0f, 1.0f);
 
-		float sx = 0.5f;
-		float sz = 1.0f;
-		float sz2 = 1.0f;
-		float sh = 2.0f;
-		float st = 1.0f;
-		yield return tankShiftY(relIk, -1.0f, 1.0f);
+		yield return tankShiftY(relIk, -0.5f, 1.0f);
 		{
 			float timer = 0.0f;
 			float period = 4.0f;
@@ -1056,6 +1053,8 @@ public class TankController : MonoBehaviour{
 				return Mathf.Lerp(1.0f, 0.0f, Mathf.Clamp01((t - t0)/(1.0f - t0)));
 			};
 			while(true){
+				if (!enableCoroutineController)
+					yield break;
 				float t = timer/period;
 				float angle = Mathf.PI*2.0f*t;
 				float pulseAngle = angle * 2.0f;
@@ -1066,7 +1065,7 @@ public class TankController : MonoBehaviour{
 				timer = timer % period;
 				float dx = Mathf.Cos(angle) * rx;
 				float dz = Mathf.Sin(angle) * rz;
-				float stz = 1.0f;
+				float stz = 1.5f;
 				subIk.assign(relIk);
 				subIk.addZ(dz);
 				subIk.addX(dx);
@@ -1084,7 +1083,13 @@ public class TankController : MonoBehaviour{
 				yield return null;
 			}
 		}
+
 		/*
+		float sx = 0.5f;
+		float sz = 1.0f;
+		float sz2 = 1.0f;
+		float sh = 2.0f;
+		float st = 1.0f;
 		{
 			yield return tankShift(relIk, new Vector3(-sx, 0.0f, sz), 1.0f);
 			while(true){
