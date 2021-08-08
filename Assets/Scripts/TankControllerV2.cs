@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Linq;
 using TankExtensions;
 using IkSolver;
+using ValueDriver;
 
 public class TankControllerV2: MonoBehaviour{
 	[System.Serializable]
@@ -81,7 +82,7 @@ public class TankControllerV2: MonoBehaviour{
 		public Transform legLFTarget = null;
 		public Transform legLBTarget = null;
 		
-		Transform getLegIkTarget(int legIndex){
+		public Transform getLegIkTarget(int legIndex){
 			switch(legIndex){
 				case(0):
 					return legLFTarget;
@@ -274,10 +275,6 @@ public class TankControllerV2: MonoBehaviour{
 		controlCoroutineObject = StartCoroutine(controlCoroutine());
 	}
 
-	IEnumerator controlCoroutine(){
-		yield break;
-	}
-
 	void applyHingeAngle(HingeJoint hinge, float angle){
 		if (!hinge)
 			return;
@@ -305,95 +302,6 @@ public class TankControllerV2: MonoBehaviour{
 		applyLegControl(parts.legRB, directControl.legControlRB);
 		applyLegControl(parts.legLB, directControl.legControlLB);
 	}	
-
-	static void updateIkChain(List<IkNode> nodes, int firstIndex, bool reset, bool recalculateCoord){
-		if (reset){
-			for(int i = firstIndex; i < nodes.Count; i++){
-				nodes[i].reset();
-			}
-		}
-
-		for(int i = firstIndex; i < nodes.Count; i++){
-			nodes[i].update((i > 0) ? nodes[i-1]: null, recalculateCoord);
-		}
-	}
-
-	static bool almostEqual(float a, float b, float epsilon = 0.001f){
-		if (b > a)
-			return (b - a) <= epsilon;
-		else
-			return (a - b) <= epsilon;
-	}
-
-	static bool almostEqual(Vector3 a, Vector3 b, float epsilon = 0.001f){
-		return 
-			almostEqual(a.x, b.x, epsilon) &&
-			almostEqual(a.y, b.y, epsilon) &&
-			almostEqual(a.z, b.z, epsilon);
-	}
-
-	static void solveIkChain(List<IkNode> nodes, Vector3 target, bool reset, int chainLength = -1, float epsilon = 0.001f){
-		updateIkChain(nodes, 0, reset, true);
-		var lastIndex = nodes.Count - 1;
-		if (lastIndex < 0)
-			return;
-
-		int maxIterations = 10;
-		for(int iterationIndex = 0; iterationIndex < maxIterations; iterationIndex++){
-			for(int nodeIndex = 0; nodeIndex < lastIndex; nodeIndex++){
-				if ((chainLength >= 0) && (nodeIndex >= chainLength))
-					break;
-
-				var curNode = nodes[nodeIndex];
-				var lastNode = nodes[lastIndex];
-
-				var toTarget = (target - curNode.jointWorld.pos).normalized;
-				var toEffector = (lastNode.jointWorld.pos - curNode.jointWorld.pos).normalized;
-
-				var axis = curNode.jointWorld.x;
-
-				var projToTarget = Vector3.ProjectOnPlane(toTarget, axis);
-				var projToEffector = Vector3.ProjectOnPlane(toEffector, axis);
-
-				if (almostEqual(projToTarget, Vector3.zero) || almostEqual(projToEffector, Vector3.zero))
-					continue;
-
-				projToTarget = projToTarget.normalized;
-				projToEffector = projToEffector.normalized;
-
-				//we use limits, hence Atan2. The engine can handlle it anyway, but we COULD optimize it.
-				var xVec = projToEffector;
-				var yVec = Vector3.Cross(axis, xVec).normalized;
-
-				var yVal = Vector3.Dot(yVec, projToTarget);
-				var xVal = Vector3.Dot(xVec, projToTarget);
-
-				var targetAngle = Mathf.Atan2(yVal, xVal) * Mathf.Rad2Deg;
-				curNode.jointState.xRotDeg += targetAngle;
-
-				/*
-				var rotatedForward = vectorRotate(curNode.world.forward, projToEffector, projToTarget, axis);
-				var rotatedUp = vectorRotate(curNode.world.up, projToEffector, projToTarget, axis);
-				if (nodeIndex > 0){
-					var parentNode = nodes[nodeIndex - 1];
-
-					rotatedForward = parentNode.world.inverseTransformVector(rotatedForward);
-					rotatedUp = parentNode.world.inverseTransformVector(rotatedUp);
-				}
-
-				curNode.local.forward = rotatedForward;
-				curNode.local.up = rotatedUp;
-				*/
-
-				updateIkChain(nodes, nodeIndex, false, true);
-			}
-			var diff = target - nodes[lastIndex].jointWorld.pos;
-			if (diff.magnitude < epsilon)
-				break;
-			if (almostEqual(target, nodes[lastIndex].jointWorld.pos, epsilon))
-				break;
-		}
-	}
 
 	void solveLegKinematics(Leg leg, LegControl legControl, Vector3 worldTargetPos){
 		if (!parts.body.obj || !leg.hip.obj || !leg.upper.obj || !leg.lower.obj || !leg.tip.obj)
@@ -427,7 +335,7 @@ public class TankControllerV2: MonoBehaviour{
 		}
 
 		var targetPos = worldBodyCoord.inverseTransformPoint(worldTargetPos);
-		solveIkChain(nodes, targetPos, true);
+		Solver.solveIkChain(nodes, targetPos, true);
 
 		//updateIkChain(nodes, 0, false, false);
 		var debugCoord = worldBodyCoord;
@@ -462,11 +370,292 @@ public class TankControllerV2: MonoBehaviour{
 			solveLegKinematics(parts.legLB, directControl.legControlLB, ikControl.legLBTarget.position);
 	}
 
+	void setRelLegIk(int legIndex, float right, float forward, float height){
+		var target = ikControl.getLegIkTarget(legIndex);
+		var rightVec = parts.body.obj.transform.right;
+		var forwardVec = parts.body.obj.transform.forward;
+		var upVec = parts.body.obj.transform.up;
+		var pos = parts.body.objWorldPos;
+
+		target.transform.position = pos 
+			+ right * rightVec + forward * forwardVec 
+			+ upVec * height;
+	}
+
+	void setRelLegIk(int legIndex, Vector3 coord){
+		setRelLegIk(legIndex, coord.x, coord.z, coord.y);
+	}
+
+	void setRelLegIk(Vector3 lf, Vector3 rf, Vector3 lb, Vector3 rb){
+		setRelLegIk(0, lf);
+		setRelLegIk(1, rf);
+		setRelLegIk(2, lb);
+		setRelLegIk(3, rb);
+	}
+
+	void setRelLegIk(LegRelIk relIk){
+		setRelLegIk(relIk.lf, relIk.rf, relIk.lb, relIk.rb);
+	}
+
+	Vector3 invRelTransformNoScale(Transform t, Vector3 p){
+		var diff = p - t.position;
+		return new Vector3(
+			Vector3.Dot(diff, t.right),
+			Vector3.Dot(diff, t.up),
+			Vector3.Dot(diff, t.forward)
+		);
+	}
+
+	LegRelIk getLegRelIk(bool fromTargets){
+		var result = new LegRelIk();
+		result.rf = fromTargets ? ikControl.legRFTarget.position: parts.legRF.tip.objWorldPos;
+		result.lf = fromTargets ? ikControl.legLFTarget.position: parts.legLF.tip.objWorldPos;
+		result.rb = fromTargets ? ikControl.legRBTarget.position: parts.legRB.tip.objWorldPos;
+		result.lb = fromTargets ? ikControl.legLBTarget.position: parts.legLB.tip.objWorldPos;
+
+		var bodyT = parts.body.obj.transform;
+		result.rf = invRelTransformNoScale(bodyT, result.rf);
+		result.rb = invRelTransformNoScale(bodyT, result.rb);
+		result.lf = invRelTransformNoScale(bodyT, result.lf);
+		result.lb = invRelTransformNoScale(bodyT, result.lb);
+
+		return result;
+	}
+
+	float sawFunc(float t){
+		t = Mathf.Repeat(t, 1.0f);
+		float t0 = 0.25f;
+		if (t <= t0)
+			return Mathf.Lerp(0.0f, 1.0f, Mathf.Clamp01(t/t0));
+		return Mathf.Lerp(1.0f, 0.0f, Mathf.Clamp01((t - t0)/(1.0f - t0)));
+	}
+
+	void combineIks(LegRelIk result, LinkedList<LegRelIk> iks, LegRelIk untilIk){
+		result.setVec(Vector3.zero);
+		bool first = true;
+		foreach(var cur in iks){
+			if (cur == untilIk)
+				break;
+			if (first){
+				result.assign(cur);
+				first = false;
+			}
+			else
+				result.addIk(cur);
+		}
+	}
+
+	[System.Serializable]
+	public class GaitGenerator{
+		public int numSectors{
+			get => 4;
+		}
+		public float timer = 0.0f;
+		public float period = 4.0f;
+		public float relT = 0.0f;
+		public float relSectorT = 0.0f;
+		public float angleDeg = 0.0f;
+		public float angleRad = 0.0f;
+		public int currentSector = 0;
+		public float[] raisePulses = new float[0];
+		public float[] lerpPulses = new float[0];
+		public float circleX = 0.0f;
+		public float circleY = 0.0f;
+
+		public float saw(float t, int numSectors){
+			var sectorDur = 1.0f / (float)numSectors;
+			t = Mathf.Repeat(t, 1.0f);
+			if (t < sectorDur)
+				return Mathf.Lerp(-1.0f, 0.0f, t/sectorDur);
+			return Mathf.Lerp(0.0f, 1.0f, (t - sectorDur)/(1.0f - sectorDur));
+		}
+
+		public void update(){
+			if ((raisePulses?.Length ?? 0) != numSectors)
+				raisePulses = new float[numSectors];
+			if ((lerpPulses?.Length ?? 0) != numSectors)
+				lerpPulses = new float[numSectors];
+
+			float sectorDur = 1/(float)numSectors;
+
+			timer += Time.deltaTime;
+			timer = Mathf.Repeat(timer, period);
+			relT = timer/period;
+
+			angleDeg = Mathf.Lerp(0.0f, 360.0f, relT);
+			angleRad = angleDeg * Mathf.Deg2Rad;
+			circleX = Mathf.Cos(angleRad);
+			circleY = Mathf.Sin(angleRad);
+
+			var pulseAngle = angleRad * 0.5f * (float)numSectors;
+			var pulseValue = Mathf.Abs(Mathf.Sin(pulseAngle));
+			
+			relSectorT = Mathf.Repeat(relT/sectorDur, 1.0f);
+			currentSector = Mathf.Clamp(Mathf.FloorToInt(relT/sectorDur), 0, numSectors - 1);
+
+			for(int sectorIndex = 0; sectorIndex < numSectors; sectorIndex++){
+				raisePulses[sectorIndex] = (sectorIndex == currentSector) ? pulseValue : 0.0f;
+				lerpPulses[sectorIndex] = saw(relT - sectorDur * (float)sectorIndex, numSectors);
+			}
+		}
+	}
+
+	public GaitGenerator gaitGenerator = new GaitGenerator();
+
+	IEnumerator controlCoroutine(){
+		var legIk = getLegRelIk(false);
+
+		var sideOffset = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => Mathf.Abs(v.x)).Average();
+		var forwardOffset = MathTools.seq(legIk.rf, legIk.lf).Select(v => v.z).Average();
+		var backOffset = MathTools.seq(legIk.rb, legIk.lb).Select(v => v.z).Average();
+		var height = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => v.y).Average();
+
+		legIk = new LegRelIk(sideOffset, forwardOffset, backOffset, height);
+		LinkedList<LegRelIk> iks = new LinkedList<LegRelIk>();
+
+		var baseIk = legIk;
+		iks.AddLast(baseIk);
+
+		var heightIk = new LegRelIk();
+		iks.AddLast(heightIk);
+
+		var extendIk = new LegRelIk();
+		iks.AddLast(extendIk);
+
+		var circleIk = new LegRelIk();
+		iks.AddLast(circleIk);
+
+		var legRaiseIk = new LegRelIk();
+		iks.AddLast(legRaiseIk);
+
+		var legMoveIk = new LegRelIk();
+		iks.AddLast(legMoveIk);
+
+		setRelLegIk(legIk);
+
+		var combinedIk = new LegRelIk();
+		System.Action updRelIk = () => {
+			combineIks(combinedIk, iks, null);
+			setRelLegIk(combinedIk);
+		};
+
+		yield return new WaitForSeconds(1.0f);
+
+		/*
+		yield return heightIk.shiftY(2.0f, 1.0f, updRelIk);
+
+		float extX = 0.0f;
+		float extY = 0.0f;
+		float extZ = 3.0f;
+		extendIk.addVec(0, -extX, extY, extZ);
+		extendIk.addVec(1, +extX, extY, extZ);
+		extendIk.addVec(2, -extX, extY, -extZ);
+		extendIk.addVec(3, +extX, extY, -extZ);
+		extendIk.weight = 0.0f;
+		yield return extendIk.driveWeight(0.0f, 1.0f, 2.0f, updRelIk);
+		*/
+
+		yield return heightIk.shiftY(-5.0f, 2.0f, updRelIk);
+
+		circleIk.weight = 0.0f;
+
+		int[] quadrantToLeg = new int[]{
+			1, 0, 2, 3
+		};
+
+		float rx = 1.0f;
+		float rz = 1.0f;
+
+		float stepHeight = 3.0f;
+
+		circleIk.weight = 0.0f;
+		legRaiseIk.weight = 0.0f;
+
+		int lastQuadrant = -1;
+
+		Vector3[] legPrev = new Vector3[gaitGenerator.numSectors];
+		Vector3[] legNext = new Vector3[gaitGenerator.numSectors];
+		bool[] legNextFlags = new bool[gaitGenerator.numSectors];
+		float[] lastSawValue = new float[gaitGenerator.numSectors];
+		for(int i = 0; i < gaitGenerator.numSectors; i++){
+			lastSawValue[i] = 0.0f;
+			legPrev[i] = legNext[i] = Vector3.zero;
+			legNextFlags[i] = false;
+		}
+
+		float stepVal = 3.0f;
+		float extValX = 2.0f;
+		float extValZ = 2.0f;
+		circleIk.weight = 0.0f;
+		legRaiseIk.weight = 0.0f;
+		while(true){
+			circleIk.setVec(gaitGenerator.circleX * rx, 0.0f, gaitGenerator.circleY * rz);
+			for(int secIndex = 0; secIndex < gaitGenerator.numSectors; secIndex++){
+				int legIndex = quadrantToLeg[secIndex];
+				legRaiseIk.setVec(legIndex, 0.0f, gaitGenerator.raisePulses[secIndex] * stepHeight, 0.0f);
+			}
+			if (circleIk.weight < 1.0f){
+				circleIk.weight = Mathf.Clamp01(circleIk.weight + Time.deltaTime * 0.5f);
+				updRelIk();
+				yield return null;
+				continue;
+			}
+			if (legRaiseIk.weight < 1.0f){
+				legRaiseIk.weight = Mathf.Clamp01(legRaiseIk.weight + Time.deltaTime * 0.5f);
+				updRelIk();
+				yield return null;
+				continue;
+			}
+
+			for(int secIndex = 0; secIndex < gaitGenerator.numSectors; secIndex++){
+				int legIndex = quadrantToLeg[secIndex];
+				//legRaiseIk.setVec(legIndex, 0.0f, gaitGenerator.raisePulses[secIndex] * stepHeight, 0.0f);
+				//legRaiseIk.setVec(legIndex, 0.0f, gaitGenerator.lerpPulses[secIndex] * stepHeight, 0.0f);
+				var sawValue = gaitGenerator.lerpPulses[secIndex];
+
+				bool leftLeg = ((legIndex & 0x1) == 0);
+				bool frontLeg= legIndex < 2;
+
+				var legBaseCoord = new Vector3(
+					(leftLeg ? -extValX: extValX),
+					0.0f, 
+					(frontLeg ? extValZ: -extValZ)
+				);
+
+				if ((lastSawValue[legIndex] < 0.0f) && (sawValue >= 0.0f)){
+					if (!legNextFlags[legIndex])
+						legPrev[legIndex] = legNext[legIndex];
+					else{
+						legPrev[legIndex] = legBaseCoord - Vector3.forward * stepVal;
+					}
+				}
+
+				if ((lastSawValue[legIndex] > 0.0f) && (sawValue <= 0.0f)){
+					legNext[legIndex] = legBaseCoord + Vector3.forward * stepVal;
+					legNextFlags[legIndex] = true;
+				}
+
+				var lerpFactor = Mathf.Repeat(sawValue + 1.0f, 1.0f);
+				var legValue = (sawValue < 0.0f) ?  
+					Vector3.Lerp(legPrev[legIndex], legNext[legIndex], lerpFactor):
+					Vector3.Lerp(legNext[legIndex], legPrev[legIndex], lerpFactor);
+				
+				legMoveIk.setVec(legIndex, legValue);
+
+				lastSawValue[legIndex] = sawValue;
+			}
+			if (lastQuadrant != gaitGenerator.currentSector){
+				lastQuadrant = gaitGenerator.currentSector;
+			}
+
+			updRelIk();
+			yield return null;
+		}
+	}
+
 	void Update(){
-		//computeMass();
-		//computeProjections();
+		gaitGenerator.update();
 		solveKinematics();
 		applyControl();		
 	}
-
 }
