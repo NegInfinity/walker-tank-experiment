@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class VolumeData : MonoBehaviour{
-	// Start is called before the first frame update
 	public Vector3 minPoint;
 	public Vector3 maxPoint;
 
@@ -14,9 +13,6 @@ public class VolumeData : MonoBehaviour{
 	public int xRes = 1;
 	public int yRes = 1;
 	public int zRes = 1;
-	void Start(){
-		
-	}
 
 	public void rebuild(){
 		var meshFilter = GetComponent<MeshFilter>();
@@ -107,10 +103,5 @@ public class VolumeData : MonoBehaviour{
 
 	void OnDrawGizmosSelected(){
 		drawGizmos(new Color(1.0f, 1.0f, 1.0f, 0.5f));
-	}
-
-	// Update is called once per frame
-	void Update(){
-		
 	}
 }

@@ -21,14 +21,14 @@ public struct IkJointLimit{
 
 [System.Serializable]
 public struct IkJointState{
-	public float xRot;
+	public float xRotDeg;
 
 	public static IkJointState zero{
 		get => new IkJointState(0.0f);
 	}
 
-	public IkJointState(float xRot_){
-		xRot = xRot_;
+	public IkJointState(float xRotDeg_){
+		xRotDeg = xRotDeg_;
 	}
 }
 
