@@ -117,6 +117,11 @@ public class IkNode{
 		if(hinge){
 			jointDefault.pos = obj.transformPoint(hinge.anchor);
 			jointDefault.x = obj.transformVector(hinge.axis);
+			if (hinge.useLimits){
+				jointLimits.xRot.enabled = true;
+				jointLimits.xRot.min = hinge.limits.min;
+				jointLimits.xRot.max = hinge.limits.max;
+			}
 		}
 		else{
 			jointDefault.pos = obj.transformPoint(Vector3.zero);
