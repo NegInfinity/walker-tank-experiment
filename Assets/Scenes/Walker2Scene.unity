@@ -1442,44 +1442,44 @@ MonoBehaviour:
       name: 
       obj: {fileID: 0}
       hinge: {fileID: 0}
-      body: {fileID: 0}
+      rigBody: {fileID: 0}
       defaultTransform: {fileID: 0}
     barrel:
       name: 
       obj: {fileID: 0}
       hinge: {fileID: 0}
-      body: {fileID: 0}
+      rigBody: {fileID: 0}
       defaultTransform: {fileID: 0}
     body:
       name: 
       obj: {fileID: 0}
       hinge: {fileID: 0}
-      body: {fileID: 0}
+      rigBody: {fileID: 0}
       defaultTransform: {fileID: 0}
     legRF:
       hip:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       upper:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       lower:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       tip:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       right: 0
       front: 0
@@ -1488,25 +1488,25 @@ MonoBehaviour:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       upper:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       lower:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       tip:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       right: 0
       front: 0
@@ -1515,25 +1515,25 @@ MonoBehaviour:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       upper:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       lower:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       tip:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       right: 0
       front: 0
@@ -1542,25 +1542,25 @@ MonoBehaviour:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       upper:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       lower:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       tip:
         name: 
         obj: {fileID: 0}
         hinge: {fileID: 0}
-        body: {fileID: 0}
+        rigBody: {fileID: 0}
         defaultTransform: {fileID: 0}
       right: 0
       front: 0
@@ -1588,6 +1588,7 @@ MonoBehaviour:
     legRBTarget: {fileID: 1168375800}
     legLFTarget: {fileID: 574753562}
     legLBTarget: {fileID: 211955992}
+  followCam: {fileID: 1459390719}
   gaitGenerator:
     timer: 0
     period: 4
@@ -1670,11 +1671,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 545622643}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa7155796051b734daa718462081dc5f, type: 3}
+  m_Script: {fileID: 11500000, guid: 9384ab8608cdc3d479fe89cd51eed48f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_BindingMode: 1
-  m_FollowOffset: {x: 0, y: 0, z: -10}
+  m_FollowOffset: {x: 0, y: 2, z: -20}
   m_XDamping: 1
   m_YDamping: 1
   m_ZDamping: 1
@@ -1683,6 +1684,38 @@ MonoBehaviour:
   m_YawDamping: 0
   m_RollDamping: 0
   m_AngularDamping: 0
+  m_Heading:
+    m_Definition: 3
+    m_VelocityFilterStrength: 4
+    m_Bias: 0
+  m_RecenterToTargetHeading:
+    m_enabled: 0
+    m_WaitTime: 1
+    m_RecenteringTime: 2
+    m_LegacyHeadingDefinition: -1
+    m_LegacyVelocityFilterStrength: -1
+  m_XAxis:
+    Value: 0
+    m_SpeedMode: 0
+    m_MaxSpeed: 300
+    m_AccelTime: 0.1
+    m_DecelTime: 0.1
+    m_InputAxisName: Mouse X
+    m_InputAxisValue: 0
+    m_InvertInput: 0
+    m_MinValue: -180
+    m_MaxValue: 180
+    m_Wrap: 1
+    m_Recentering:
+      m_enabled: 0
+      m_WaitTime: 1
+      m_RecenteringTime: 2
+      m_LegacyHeadingDefinition: -1
+      m_LegacyVelocityFilterStrength: -1
+  m_LegacyRadius: 3.4028235e+38
+  m_LegacyHeightOffset: 3.4028235e+38
+  m_LegacyHeadingBias: 3.4028235e+38
+  m_HeadingIsSlave: 0
 --- !u!114 &545622646
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -1911,7 +1944,7 @@ Transform:
   - {fileID: 285343195}
   - {fileID: 1750381337}
   m_Father: {fileID: 682335881}
-  m_RootOrder: 1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &602793238 stripped
 GameObject:
@@ -2181,11 +2214,9 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
-  - {fileID: 1928056648}
   - {fileID: 600071899}
   - {fileID: 847244119}
-  - {fileID: 781733151}
-  - {fileID: 1777140240}
+  - {fileID: 1208083062}
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2412,7 +2443,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &781733151
 Transform:
@@ -2421,12 +2452,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 781733150}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 100}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_Children: []
-  m_Father: {fileID: 682335881}
-  m_RootOrder: 3
+  m_Father: {fileID: 1208083062}
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &781733152
 MeshCollider:
@@ -2643,7 +2674,7 @@ Transform:
   - {fileID: 231297095}
   - {fileID: 272156396}
   m_Father: {fileID: 682335881}
-  m_RootOrder: 2
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &864363864
 GameObject:
@@ -3808,6 +3839,39 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1168375799}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1208083061
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1208083062}
+  m_Layer: 0
+  m_Name: Static
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 2147483647
+  m_IsActive: 1
+--- !u!4 &1208083062
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1208083061}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 1928056648}
+  - {fileID: 781733151}
+  - {fileID: 1777140240}
+  m_Father: {fileID: 682335881}
+  m_RootOrder: 2
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1246713370 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3486190979974477641, guid: 10023e27b10a1dc40bd9178b1ca77e3f, type: 3}
@@ -4034,7 +4098,7 @@ GameObject:
   - component: {fileID: 1459390720}
   - component: {fileID: 1459390719}
   m_Layer: 0
-  m_Name: CM vcam2
+  m_Name: CM vcam2 (follow)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4085,8 +4149,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1459390718}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 4.13, z: -10.000001}
+  m_LocalRotation: {x: 0.049813703, y: 0.000000002148128, z: -1.07139214e-10, w: 0.99875855}
+  m_LocalPosition: {x: 0, y: 6.13, z: -20.000002}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 545622644}
@@ -4328,7 +4392,7 @@ GameObject:
   - component: {fileID: 1518142174}
   - component: {fileID: 1518142173}
   m_Layer: 0
-  m_Name: CM vcam1
+  m_Name: CM vcam1 (framing)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4919,7 +4983,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &1777140240
 Transform:
@@ -4928,12 +4992,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1777140239}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -100}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_Children: []
-  m_Father: {fileID: 682335881}
-  m_RootOrder: 4
+  m_Father: {fileID: 1208083062}
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &1777140241
 MeshCollider:
@@ -5367,7 +5431,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &1928056648
 Transform:
@@ -5376,11 +5440,11 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1928056647}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_Children: []
-  m_Father: {fileID: 682335881}
+  m_Father: {fileID: 1208083062}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!64 &1928056649

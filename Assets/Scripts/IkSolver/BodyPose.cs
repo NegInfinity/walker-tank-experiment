@@ -13,7 +13,7 @@ public class BodyPose{
 	public Vector3 lb = Vector3.zero;
 	public Vector3 rb = Vector3.zero;
 
-	Vector3 getLeg(int legIndex){
+	public Vector3 getLeg(int legIndex){
 		switch(legIndex){
 			case(0):
 				return lf;
@@ -28,7 +28,7 @@ public class BodyPose{
 		}
 	}
 
-	void setLeg(int legIndex, Vector3 newVal){
+	public void setLeg(int legIndex, Vector3 newVal){
 		switch(legIndex){
 			case(0):
 				lf = newVal;
@@ -105,16 +105,85 @@ public class BodyPose{
 			setLeg(i, getLeg(i) + arg);
 	}
 
+	public void bodyAddRel(float dx, float dy, float dz){
+		bodyAddRel(new Vector3(dx, dy, dz));
+	}
+
+	public void bodyAddWorld(float dx, float dy, float dz){
+		bodyAddWorld(new Vector3(dx, dy, dz));
+	}
+
+	public void bodyAddRel(Vector3 dv){
+		bodyAddWorld(getWorldFromRelVector(dv));
+	}
+
+	public void bodyAddWorld(Vector3 dv){
+		bodyPos += dv;
+	}
+
+	public void legsAddWorld(float dx, float dy, float dz){
+		legsAddWorld(new Vector3(dx, dy, dz));
+	}
+
 	public void legsAddRel(Vector3 arg){
 		legsAddWorld(getWorldFromRelVector(arg));
 	}	
+
+	public void legsAddRel(float dx, float dy, float dz){
+		legsAddRel(new Vector3(dx, dy, dz));
+	}
 
 	public void legAddWorld(int legIndex, Vector3 arg){
 		setLeg(legIndex, getLeg(legIndex) + arg);
 	}
 
+	public void legAddWorld(int legIndex, float dx, float dy, float dz){
+		legAddWorld(legIndex, new Vector3(dx, dy, dz));
+	}
+
 	public void legAddRel(int legIndex, Vector3 arg){
 		legAddWorld(legIndex, getWorldFromRelVector(arg));
+	}
+
+	public void legAddRel(int legIndex, float dx, float dy, float dz){
+		legAddRel(legIndex, new Vector3(dx, dy, dz));
+	}
+
+	public void vecAddWorld(float dx, float dy, float dz){
+		vecAddWorld(new Vector3(dx, dy, dz));
+	}
+
+	public void vecAddRel(float dx, float dy, float dz){
+		vecAddRel(new Vector3(dx, dy, dz));
+	}
+
+	public void vecAddWorld(Vector3 dv){
+		bodyAddWorld(dv);
+		legsAddWorld(dv);
+	}
+
+	public void vecAddRel(Vector3 dv){
+		bodyAddRel(dv);
+		legsAddRel(dv);
+	}
+
+	public void moveTo(Vector3 pos){
+		vecAddWorld(pos - bodyPos);
+	}
+
+	public void rotateAroundBody(float angleDeg, Vector3 axis){
+		rotateAroundBody(Quaternion.AngleAxis(angleDeg, axis));
+	}
+	
+	public void rotateAroundBody(Quaternion rot){
+		for(int i = 0; i < 4; i++){
+			var pos = getLeg(i);
+			var diff = pos - bodyPos;
+			diff = rot * diff;
+			pos = diff + bodyPos;
+			setLeg(i, pos);
+		}
+		bodyRot *= rot;
 	}
 
 	public void getRelIk(LegRelIk result){
@@ -129,6 +198,10 @@ public class BodyPose{
 			var relPos = arg.getLegPos(legIndex);
 			setLeg(legIndex, getWorldFromRelPoint(relPos));
 		}
+	}
+
+	public BodyPose clone(){
+		return new BodyPose(this);
 	}
 
 	public BodyPose(){		

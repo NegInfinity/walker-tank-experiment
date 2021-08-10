@@ -12,22 +12,30 @@ public class TankControllerV2: MonoBehaviour{
 		public string name;
 		public GameObject obj;
 		public HingeJoint hinge;
-		public Rigidbody body;
+		public Rigidbody rigBody;
 		public DefaultTransform defaultTransform;		
 
 		public Vector3 objWorldPos{
 			get => obj.transform.position;
 		}
 
+		public Quaternion objWorldRot{
+			get => obj.transform.rotation;
+		}
+
+		public Vector3 velocity{
+			get => rigBody.velocity;
+		}
+
 		public Part(GameObject obj_){
 			obj = obj_;
 			name = obj.name;
 			hinge = null;
-			body = null;
+			rigBody = null;
 			defaultTransform = null;
 			if (obj){
 				hinge = obj.GetComponent<HingeJoint>();
-				body = obj.GetComponent<Rigidbody>();
+				rigBody = obj.GetComponent<Rigidbody>();
 				defaultTransform = obj.GetComponent<DefaultTransform>();
 			}
 		}
@@ -60,6 +68,21 @@ public class TankControllerV2: MonoBehaviour{
 		public Leg legLF;
 		public Leg legRB;
 		public Leg legLB;
+
+		public Leg getLeg(int legIndex){
+			switch(legIndex){
+				case(0):
+					return legLF;
+				case(1):
+					return legRF;
+				case(2):
+					return legLB;
+				case(3):
+					return legRB;
+				default:
+					throw new System.ArgumentOutOfRangeException();
+			}
+		}
 	}
 
 	public Parts parts = new Parts();
@@ -72,6 +95,20 @@ public class TankControllerV2: MonoBehaviour{
 		public LegControl legControlLF = new LegControl();
 		public LegControl legControlRB = new LegControl();
 		public LegControl legControlLB = new LegControl();
+		LegControl getLeg(int legIndex){
+			switch(legIndex){
+				case(0):
+					return legControlLF;
+				case(1):
+					return legControlRF;
+				case(2):
+					return legControlLB;
+				case(3):
+					return legControlRB;
+				default:
+					throw new System.ArgumentOutOfRangeException();
+			}
+		}
 	}
 	public DirectControl directControl = new DirectControl();
 
@@ -98,6 +135,8 @@ public class TankControllerV2: MonoBehaviour{
 		}
 	}
 	public IkControl ikControl = new IkControl();
+
+	public Cinemachine.CinemachineVirtualCamera followCam = null;
 
 
 	bool findTankPart(out Part result, string name){
@@ -144,9 +183,9 @@ public class TankControllerV2: MonoBehaviour{
 	}
 
 	void drawCenterOfMass(Part part){
-		if (!part.body)
+		if (!part.rigBody)
 			return;
-		drawGizmoPoint(part.body.worldCenterOfMass, 0.25f);
+		drawGizmoPoint(part.rigBody.worldCenterOfMass, 0.25f);
 	}
 
 	void drawLegGizmo(Leg leg){
@@ -161,10 +200,10 @@ public class TankControllerV2: MonoBehaviour{
 	}
 
 	void addCenterOfMass(ref Vector3 center, ref float mass, Part part){
-		if (!part.body)
+		if (!part.rigBody)
 			return;
-		var worldCenter = part.body.worldCenterOfMass;
-		var partMass = part.body.mass;
+		var worldCenter = part.rigBody.worldCenterOfMass;
+		var partMass = part.rigBody.mass;
 		center += worldCenter * partMass;
 		mass += partMass;
 	}
@@ -502,7 +541,7 @@ public class TankControllerV2: MonoBehaviour{
 
 	public GaitGenerator gaitGenerator = new GaitGenerator();
 
-	IEnumerator controlCoroutine(){
+	IEnumerator walk01(){
 		var legIk = getLegRelIk(false);
 
 		var sideOffset = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => Mathf.Abs(v.x)).Average();
@@ -540,20 +579,6 @@ public class TankControllerV2: MonoBehaviour{
 		};
 
 		yield return new WaitForSeconds(1.0f);
-
-		/*
-		yield return heightIk.shiftY(2.0f, 1.0f, updRelIk);
-
-		float extX = 0.0f;
-		float extY = 0.0f;
-		float extZ = 3.0f;
-		extendIk.addVec(0, -extX, extY, extZ);
-		extendIk.addVec(1, +extX, extY, extZ);
-		extendIk.addVec(2, -extX, extY, -extZ);
-		extendIk.addVec(3, +extX, extY, -extZ);
-		extendIk.weight = 0.0f;
-		yield return extendIk.driveWeight(0.0f, 1.0f, 2.0f, updRelIk);
-		*/
 
 		yield return heightIk.shiftY(-5.0f, 2.0f, updRelIk);
 
@@ -651,6 +676,203 @@ public class TankControllerV2: MonoBehaviour{
 			updRelIk();
 			yield return null;
 		}
+	}
+
+	BodyPose getBodyPose(){
+		var result = new BodyPose();
+		getBodyPose(result);
+		return result;
+	}
+
+	void getBodyPose(BodyPose pose){
+		pose.bodyPos = parts.body.objWorldPos;
+		pose.bodyRot = parts.body.objWorldRot;
+		for(int i = 0; i < 4; i++)
+			pose.setLeg(i, parts.getLeg(i).tip.objWorldPos);
+	}
+
+	IEnumerator walk02(){
+		var legIk = getLegRelIk(false);
+
+		var sideOffset = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => Mathf.Abs(v.x)).Average();
+		var forwardOffset = MathTools.seq(legIk.rf, legIk.lf).Select(v => v.z).Average();
+		var backOffset = MathTools.seq(legIk.rb, legIk.lb).Select(v => v.z).Average();
+		var legHeight = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => v.y).Average();
+
+		legIk = new LegRelIk(sideOffset, forwardOffset, backOffset, legHeight);
+		LinkedList<LegRelIk> iks = new LinkedList<LegRelIk>();
+
+		var baseIk = legIk;
+		iks.AddLast(baseIk);
+
+		var legExtendIk = new LegRelIk();
+		iks.AddLast(legExtendIk);
+
+		var liftIk = new LegRelIk();
+		iks.AddLast(liftIk);
+
+		var legRaiseIk = new LegRelIk();
+		iks.AddLast(legRaiseIk);
+
+		var combinedIk = new LegRelIk();
+		System.Action updRelIk = () => {
+			combineIks(combinedIk, iks, null);
+			setRelLegIk(combinedIk);
+		};
+
+
+		yield return new WaitForSeconds(1.0f);
+		var extX = 2.5f;
+		var extZ = 1.5f;
+		legExtendIk.addVec(0, -extX, 0, extZ);
+		legExtendIk.addVec(1, extX, 0, extZ);
+		legExtendIk.addVec(2, -extX, 0, -extZ);
+		legExtendIk.addVec(3, extX, 0, -extZ);
+		legExtendIk.weight = 0.0f;
+
+		var zeroPose = new BodyPose();
+		zeroPose.legAddRel(0, -sideOffset, 0.0f, forwardOffset);
+		zeroPose.legAddRel(1, sideOffset, 0.0f, forwardOffset);
+		zeroPose.legAddRel(2, -sideOffset, 0.0f, backOffset);
+		zeroPose.legAddRel(3, sideOffset, 0.0f, backOffset);		
+		zeroPose.bodyPos = new Vector3(0.0f, -legHeight, 0.0f);
+
+		var refPose = zeroPose.clone();		
+		refPose.bodyAddRel(0.0f, 5.0f, 0.0f);
+		refPose.legAddRel(0, -extX, 0, extZ);
+		refPose.legAddRel(1, extX, 0, extZ);
+		refPose.legAddRel(2, -extX, 0, -extZ);
+		refPose.legAddRel(3, extX, 0, -extZ);
+
+		yield return liftIk.shiftY(1.0f, 1.0f, updRelIk);
+
+		yield return legExtendIk.driveWeight(1.0f, 1.0f, updRelIk);
+
+		yield return liftIk.shiftY(-6.0f, 3.0f, updRelIk);
+
+		if (followCam)
+			followCam.Priority += 10;
+
+		var startPose = refPose.clone();//getBodyPose();
+		var endPose = startPose.clone();
+		endPose.vecAddRel(0.0f, 0.0f, 5.0f);
+		var lerpPose = startPose.clone();
+		var worldPose = new BodyPose();
+
+		var relPose = new LegRelIk();
+		int[] legRemap = new int[]{0, 1, 2, 3};
+		float legRaiseHeight = 2.0f;
+		float heading = 0.0f;
+		while(true){
+			float t = 0;
+			float duration = 4.0f;
+
+			var move2D = new Vector2(
+				Input.GetAxis("Horizontal"),
+				Input.GetAxis("Vertical")
+			);
+			if (move2D.magnitude > 1.0f)
+				move2D.Normalize();
+
+			var move3d = Vector3.zero;
+			if (followCam){
+				var camForward = Vector3.ProjectOnPlane(followCam.transform.forward, Vector3.up).normalized;
+				var camRight = Vector3.ProjectOnPlane(followCam.transform.right, Vector3.up).normalized;
+				camRight = Vector3.ProjectOnPlane(camRight, camForward).normalized;
+				Debug.Log($"cam forward: {camForward}");
+				Debug.Log($"cam right: {camRight}");
+
+				move3d += move2D.x * camRight;
+				move3d += move2D.y * camForward;
+
+				var bodyTransform = parts.body.obj.transform;
+				var bodyForward = Vector3.ProjectOnPlane(bodyTransform.forward, Vector3.up).normalized;
+				var bodyLeft = Vector3.ProjectOnPlane(-bodyTransform.right, Vector3.up);
+				bodyLeft = Vector3.ProjectOnPlane(bodyLeft, bodyForward).normalized;
+
+				var x = Vector3.Dot(bodyForward, camForward);
+				var y = Vector3.Dot(bodyLeft, camForward);
+
+				var angle = Mathf.Atan2(y, x)*Mathf.Rad2Deg;
+				angle = Mathf.Clamp(angle, -45.0f, 45.0f);
+				if (Mathf.Abs(angle) > 1.0f){
+					heading -= angle;
+				}
+			}
+			heading = Mathf.Repeat(heading, 360.0f);
+
+			var moveLen = 5.0f;
+			Vector3 deltaMove = move3d * moveLen;//new Vector3(move2D.x * moveLen, 0.0f, move2D.y * moveLen);//new Vector3(0.0f, 0.0f, 5.0f);
+			getBodyPose(worldPose);
+			startPose.assign(refPose);
+			startPose.moveTo(worldPose.bodyPos);
+			startPose.rotateAroundBody(heading, Vector3.up);
+			endPose.assign(startPose);
+			startPose.assign(worldPose);
+			//endPose.vecAddRel(deltaMove);
+			endPose.vecAddWorld(deltaMove);
+
+
+			while(t < duration){
+				t += Time.deltaTime;
+				float relT = Mathf.Clamp01(t/duration);
+				var bodyLerp = relT;
+				//var bodyLerp = -Mathf.Cos(Mathf.PI * relT) * 0.5f + 0.5f;
+				lerpPose.assign(startPose);
+				lerpPose.bodyPos = Vector3.Lerp(startPose.bodyPos, endPose.bodyPos, bodyLerp);
+				lerpPose.bodyRot = Quaternion.Lerp(startPose.bodyRot, endPose.bodyRot, bodyLerp);
+
+				var legT = bodyLerp * 4.0f;
+				var legRelT = Mathf.Repeat(legT, 1.0f);
+				/*
+				https://easings.net/#easeInSine
+				function easeInSine(x: number): number {
+ 					 return 1 - cos((x * PI) / 2);
+				}
+				*/
+				var legLerp = Mathf.Clamp01(
+					//legRelT * legRelT
+					1.0f - Mathf.Cos((legRelT * Mathf.PI) * 0.5f)
+				);
+				var currentLeg = Mathf.Clamp(Mathf.FloorToInt(legT), 0, 3);
+				int numLegs = 4;
+				var raisePulse = Mathf.Sin(Mathf.PI * legRelT);
+
+				for(int i = 0; i < currentLeg; i++){
+					lerpPose.setLeg(
+						legRemap[i], 
+						endPose.getLeg(legRemap[i])
+					);
+				}
+				lerpPose.setLeg(
+					legRemap[currentLeg], 
+					Vector3.Lerp(
+						startPose.getLeg(legRemap[currentLeg]), 
+						endPose.getLeg(legRemap[currentLeg]), 
+						legLerp
+					)
+				);
+				lerpPose.legAddWorld(legRemap[currentLeg], Vector3.up * legRaiseHeight * raisePulse);
+				for(int i = currentLeg + 1; i < numLegs; i++){
+					lerpPose.setLeg(
+						legRemap[i], 
+						startPose.getLeg(legRemap[i])
+					);
+				}
+
+				lerpPose.getRelIk(relPose);
+				setRelLegIk(relPose);
+				yield return null;
+			}
+
+		}
+
+		yield break;
+	}
+
+
+	IEnumerator controlCoroutine(){
+		yield return walk02();
 	}
 
 	void Update(){
