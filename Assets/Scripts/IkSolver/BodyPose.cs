@@ -167,6 +167,42 @@ public class BodyPose{
 		legsAddRel(dv);
 	}
 
+	public Vector3 getAverageLegPos(){
+		var result = Vector3.zero;
+		for(int i = 0; i < 4; i++)
+			result += getLeg(i);
+		result /= 4.0f;
+		return result;
+	}
+
+	public void adjustPositionsToWorld(LayerMask mask, Vector3 up, float rayStartHeight, float rayDist, float madAdjustDist = -1.0f){
+		var avgLegPos = getAverageLegPos();
+		var bodyDiff = (bodyPos - avgLegPos);
+		var bodyPlanarDiff = Vector3.ProjectOnPlane(bodyDiff, up);
+		var bodyHeight = Vector3.Dot(bodyDiff, up);
+
+		for(int i = 0; i < 4; i++){
+			var legPos = getLeg(i);
+			var start = legPos + up * rayStartHeight;
+			var hit = new RaycastHit();
+			Debug.DrawLine(start, start -up*rayDist, Color.yellow, 1.0f);
+			if (!Physics.Raycast(start, -up, out hit, rayDist, mask))
+				continue;
+			Debug.DrawLine(start, hit.point, Color.red, 1.0f);
+			var diff = hit.point - legPos;
+			if ((madAdjustDist > 0.0f) && (diff.magnitude > madAdjustDist))
+				continue;
+			Debug.DrawLine(legPos, hit.point, Color.green, 1.0f);
+			setLeg(i, hit.point);
+		}
+
+		var newLegPos = getAverageLegPos();
+		var newBodyPos = newLegPos + bodyPlanarDiff + bodyHeight * up;
+		Debug.DrawLine(bodyPos, newBodyPos, Color.green, 1.0f);
+
+		bodyPos = newBodyPos;
+	}
+
 	public void moveTo(Vector3 pos){
 		vecAddWorld(pos - bodyPos);
 	}
@@ -174,7 +210,7 @@ public class BodyPose{
 	public void rotateAroundBody(float angleDeg, Vector3 axis){
 		rotateAroundBody(Quaternion.AngleAxis(angleDeg, axis));
 	}
-	
+
 	public void rotateAroundBody(Quaternion rot){
 		for(int i = 0; i < 4; i++){
 			var pos = getLeg(i);

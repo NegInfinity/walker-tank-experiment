@@ -6,162 +6,17 @@ using TankExtensions;
 using IkSolver;
 using ValueDriver;
 
+namespace TankV2{
+
+using static CenterOfMassTools;
+
 public class TankControllerV2: MonoBehaviour{
-	[System.Serializable]
-	public struct Part{
-		public string name;
-		public GameObject obj;
-		public HingeJoint hinge;
-		public Rigidbody rigBody;
-		public DefaultTransform defaultTransform;		
-
-		public Vector3 objWorldPos{
-			get => obj.transform.position;
-		}
-
-		public Quaternion objWorldRot{
-			get => obj.transform.rotation;
-		}
-
-		public Vector3 velocity{
-			get => rigBody.velocity;
-		}
-
-		public Part(GameObject obj_){
-			obj = obj_;
-			name = obj.name;
-			hinge = null;
-			rigBody = null;
-			defaultTransform = null;
-			if (obj){
-				hinge = obj.GetComponent<HingeJoint>();
-				rigBody = obj.GetComponent<Rigidbody>();
-				defaultTransform = obj.GetComponent<DefaultTransform>();
-			}
-		}
-	}
-
-	[System.Serializable]
-	public struct Leg{
-		public Part hip;
-		public Part upper;
-		public Part lower;
-		public Part tip;
-		public bool right;
-		public bool front;
-	}
-
-	[System.Serializable]
-	public class LegControl{
-		public float legYaw = 0.0f;
-		public float upperLeg = 0.0f;
-		public float lowerLeg = 0.0f;
-	}
-
-	[System.Serializable]
-	public class Parts{
-		public Part turret;
-		public Part barrel;
-		public Part body;
-
-		public Leg legRF;
-		public Leg legLF;
-		public Leg legRB;
-		public Leg legLB;
-
-		public Leg getLeg(int legIndex){
-			switch(legIndex){
-				case(0):
-					return legLF;
-				case(1):
-					return legRF;
-				case(2):
-					return legLB;
-				case(3):
-					return legRB;
-				default:
-					throw new System.ArgumentOutOfRangeException();
-			}
-		}
-	}
-
 	public Parts parts = new Parts();
-
-	[System.Serializable]
-	public class DirectControl{
-		public float turretControlAngle = 0.0f;
-		public float barrelControlAngle = 0.0f;
-		public LegControl legControlRF = new LegControl();
-		public LegControl legControlLF = new LegControl();
-		public LegControl legControlRB = new LegControl();
-		public LegControl legControlLB = new LegControl();
-		LegControl getLeg(int legIndex){
-			switch(legIndex){
-				case(0):
-					return legControlLF;
-				case(1):
-					return legControlRF;
-				case(2):
-					return legControlLB;
-				case(3):
-					return legControlRB;
-				default:
-					throw new System.ArgumentOutOfRangeException();
-			}
-		}
-	}
 	public DirectControl directControl = new DirectControl();
-
-	[System.Serializable]
-	public class IkControl{
-		public Transform legRFTarget = null;
-		public Transform legRBTarget = null;
-		public Transform legLFTarget = null;
-		public Transform legLBTarget = null;
-		
-		public Transform getLegIkTarget(int legIndex){
-			switch(legIndex){
-				case(0):
-					return legLFTarget;
-				case(1):
-					return legRFTarget;
-				case(2):
-					return legLBTarget;
-				case(3):
-					return legRBTarget;
-				default:
-					return legLFTarget;
-			}
-		}
-	}
 	public IkControl ikControl = new IkControl();
 
 	public Cinemachine.CinemachineVirtualCamera followCam = null;
-
-
-	bool findTankPart(out Part result, string name){
-		var obj = gameObject.findObjectWithLowerName(name);
-		if (obj){
-			result = new Part(obj);
-			return true;
-		}
-		else{
-			result = new Part();
-			Debug.LogWarning($"Part {name} not found in {gameObject}");
-			return false;
-		}
-	}
-
-	void findTankLeg(out Leg leg, bool front, bool right, string suffix){
-		leg = new Leg();
-		leg.right = right;
-		leg.front = front;
-
-		findTankPart(out leg.hip, $"hip{suffix}");
-		findTankPart(out leg.upper, $"upperleg{suffix}");
-		findTankPart(out leg.lower, $"lowerleg{suffix}");
-		findTankPart(out leg.tip, $"tip{suffix}");
-	}
+	public LayerMask groundMask = -1;
 
 	void drawConnectionLine(Part a, Part b){
 		drawConnectionLine(a.obj, b.obj);
@@ -199,40 +54,6 @@ public class TankControllerV2: MonoBehaviour{
 		drawCenterOfMass(leg.lower);
 	}
 
-	void addCenterOfMass(ref Vector3 center, ref float mass, Part part){
-		if (!part.rigBody)
-			return;
-		var worldCenter = part.rigBody.worldCenterOfMass;
-		var partMass = part.rigBody.mass;
-		center += worldCenter * partMass;
-		mass += partMass;
-	}
-
-	void addCenterOfMass(ref Vector3 center, ref float mass, Leg leg){
-		addCenterOfMass(ref center, ref mass, leg.hip);
-		addCenterOfMass(ref center, ref mass, leg.upper);
-		addCenterOfMass(ref center, ref mass, leg.lower);
-	}
-
-	(Vector3, float) getCenterOfMass(){
-		Vector3 centerOfMass = Vector3.zero;
-		float mass = 0.0f;
-
-		addCenterOfMass(ref centerOfMass, ref mass, parts.turret);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.barrel);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.body);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.legLB);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.legLF);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.legRB);
-		addCenterOfMass(ref centerOfMass, ref mass, parts.legRF);
-
-		if (mass != 0.0f){
-			centerOfMass /= mass;
-		}
-
-		return (centerOfMass, mass);
-	}
-
 	void drawGizmos(Color c){
 		var oldColor = Gizmos.color;
 		Gizmos.color = c;
@@ -248,7 +69,7 @@ public class TankControllerV2: MonoBehaviour{
 		drawCenterOfMass(parts.turret);
 		drawCenterOfMass(parts.barrel);
 
-		var cmData = getCenterOfMass();
+		var cmData = parts.getCenterOfMass();
 		var mass = cmData.Item2;
 		var centerOfMass = cmData.Item1;
 
@@ -289,15 +110,15 @@ public class TankControllerV2: MonoBehaviour{
 	Coroutine controlCoroutineObject = null;
 
 	void Start(){
-		findTankPart(out parts.turret, "turret");
-		findTankPart(out parts.barrel, "barrels");
+		gameObject.findTankPart(out parts.turret, "turret");
+		gameObject.findTankPart(out parts.barrel, "barrels");
 		//if (!findTankPart(out body, "body"))
 		parts.body = new Part(gameObject);
 
-		findTankLeg(out parts.legRF, true, true, "rf");
-		findTankLeg(out parts.legLF, true, false, "lf");
-		findTankLeg(out parts.legRB, false, true, "rb");
-		findTankLeg(out parts.legLB, false, false, "lb");
+		gameObject.findTankLeg(out parts.legRF, true, true, "rf");
+		gameObject.findTankLeg(out parts.legLF, true, false, "lf");
+		gameObject.findTankLeg(out parts.legRB, false, true, "rb");
+		gameObject.findTankLeg(out parts.legLB, false, false, "lb");
 
 		if (ikControl.legRFTarget && parts.legRF.tip.obj)
 			ikControl.legRFTarget.transform.position = parts.legRF.tip.obj.transform.position;
@@ -314,28 +135,16 @@ public class TankControllerV2: MonoBehaviour{
 		controlCoroutineObject = StartCoroutine(controlCoroutine());
 	}
 
-	void applyHingeAngle(HingeJoint hinge, float angle){
-		if (!hinge)
-			return;
-		var spring = hinge.spring;
-		spring.targetPosition = angle;
-		hinge.spring = spring;
-	}
-
-	void applyHingeAngle(Part part, float angle){
-		applyHingeAngle(part.hinge, angle);
-	}
-
 	void applyLegControl(Leg leg, LegControl legControl){
-		applyHingeAngle(leg.hip, legControl.legYaw);
-		applyHingeAngle(leg.upper, legControl.upperLeg);
-		applyHingeAngle(leg.lower, legControl.lowerLeg);
+		leg.hip.applyHingeAngle(legControl.legYaw);
+		leg.upper.applyHingeAngle(legControl.upperLeg);
+		leg.lower.applyHingeAngle(legControl.lowerLeg);
 	}
 
 
 	void applyControl(){
-		applyHingeAngle(parts.turret, directControl.turretControlAngle);
-		applyHingeAngle(parts.barrel, directControl.barrelControlAngle);
+		parts.turret.applyHingeAngle(directControl.turretControlAngle);
+		parts.barrel.applyHingeAngle(directControl.barrelControlAngle);
 		applyLegControl(parts.legRF, directControl.legControlRF);
 		applyLegControl(parts.legLF, directControl.legControlLF);
 		applyLegControl(parts.legRB, directControl.legControlRB);
@@ -484,61 +293,6 @@ public class TankControllerV2: MonoBehaviour{
 		}
 	}
 
-	[System.Serializable]
-	public class GaitGenerator{
-		public int numSectors{
-			get => 4;
-		}
-		public float timer = 0.0f;
-		public float period = 4.0f;
-		public float relT = 0.0f;
-		public float relSectorT = 0.0f;
-		public float angleDeg = 0.0f;
-		public float angleRad = 0.0f;
-		public int currentSector = 0;
-		public float[] raisePulses = new float[0];
-		public float[] lerpPulses = new float[0];
-		public float circleX = 0.0f;
-		public float circleY = 0.0f;
-
-		public float saw(float t, int numSectors){
-			var sectorDur = 1.0f / (float)numSectors;
-			t = Mathf.Repeat(t, 1.0f);
-			if (t < sectorDur)
-				return Mathf.Lerp(-1.0f, 0.0f, t/sectorDur);
-			return Mathf.Lerp(0.0f, 1.0f, (t - sectorDur)/(1.0f - sectorDur));
-		}
-
-		public void update(){
-			if ((raisePulses?.Length ?? 0) != numSectors)
-				raisePulses = new float[numSectors];
-			if ((lerpPulses?.Length ?? 0) != numSectors)
-				lerpPulses = new float[numSectors];
-
-			float sectorDur = 1/(float)numSectors;
-
-			timer += Time.deltaTime;
-			timer = Mathf.Repeat(timer, period);
-			relT = timer/period;
-
-			angleDeg = Mathf.Lerp(0.0f, 360.0f, relT);
-			angleRad = angleDeg * Mathf.Deg2Rad;
-			circleX = Mathf.Cos(angleRad);
-			circleY = Mathf.Sin(angleRad);
-
-			var pulseAngle = angleRad * 0.5f * (float)numSectors;
-			var pulseValue = Mathf.Abs(Mathf.Sin(pulseAngle));
-			
-			relSectorT = Mathf.Repeat(relT/sectorDur, 1.0f);
-			currentSector = Mathf.Clamp(Mathf.FloorToInt(relT/sectorDur), 0, numSectors - 1);
-
-			for(int sectorIndex = 0; sectorIndex < numSectors; sectorIndex++){
-				raisePulses[sectorIndex] = (sectorIndex == currentSector) ? pulseValue : 0.0f;
-				lerpPulses[sectorIndex] = saw(relT - sectorDur * (float)sectorIndex, numSectors);
-			}
-		}
-	}
-
 	public GaitGenerator gaitGenerator = new GaitGenerator();
 
 	IEnumerator walk01(){
@@ -678,19 +432,6 @@ public class TankControllerV2: MonoBehaviour{
 		}
 	}
 
-	BodyPose getBodyPose(){
-		var result = new BodyPose();
-		getBodyPose(result);
-		return result;
-	}
-
-	void getBodyPose(BodyPose pose){
-		pose.bodyPos = parts.body.objWorldPos;
-		pose.bodyRot = parts.body.objWorldRot;
-		for(int i = 0; i < 4; i++)
-			pose.setLeg(i, parts.getLeg(i).tip.objWorldPos);
-	}
-
 	IEnumerator walk02(){
 		var legIk = getLegRelIk(false);
 
@@ -803,15 +544,16 @@ public class TankControllerV2: MonoBehaviour{
 
 			var moveLen = 5.0f;
 			Vector3 deltaMove = move3d * moveLen;//new Vector3(move2D.x * moveLen, 0.0f, move2D.y * moveLen);//new Vector3(0.0f, 0.0f, 5.0f);
-			getBodyPose(worldPose);
+			parts.getBodyPose(worldPose);
 			startPose.assign(refPose);
 			startPose.moveTo(worldPose.bodyPos);
 			startPose.rotateAroundBody(heading, Vector3.up);
 			endPose.assign(startPose);
 			startPose.assign(worldPose);
-			//endPose.vecAddRel(deltaMove);
 			endPose.vecAddWorld(deltaMove);
 
+			startPose.adjustPositionsToWorld(groundMask, Vector3.up, legRaiseHeight * 1.5f, legRaiseHeight * 2.5f, 5.0f);
+			endPose.adjustPositionsToWorld(groundMask, Vector3.up, legRaiseHeight * 1.5f, legRaiseHeight * 2.5f, 5.0f);
 
 			while(t < duration){
 				t += Time.deltaTime;
@@ -880,4 +622,6 @@ public class TankControllerV2: MonoBehaviour{
 		solveKinematics();
 		applyControl();		
 	}
+}
+
 }
