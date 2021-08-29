@@ -314,7 +314,6 @@ public class TankControllerV2: MonoBehaviour{
 		var relPose = new LegRelIk();
 		int[] legRemap = new int[]{0, 1, 2, 3};
 		float legRaiseHeight = 2.0f;
-		float heading = 0.0f;
 		while(true){
 			float t = 0;
 			float duration = 4.0f;
@@ -327,6 +326,7 @@ public class TankControllerV2: MonoBehaviour{
 				move2D.Normalize();
 
 			var move3d = Vector3.zero;
+			float turnAngle = 0.0f;
 			if (followCam){
 				var camForward = Vector3.ProjectOnPlane(followCam.transform.forward, Vector3.up).normalized;
 				var camRight = Vector3.ProjectOnPlane(followCam.transform.right, Vector3.up).normalized;
@@ -348,17 +348,29 @@ public class TankControllerV2: MonoBehaviour{
 				var angle = Mathf.Atan2(y, x)*Mathf.Rad2Deg;
 				angle = Mathf.Clamp(angle, -45.0f, 45.0f);
 				if (Mathf.Abs(angle) > 1.0f){
-					heading -= angle;
+					turnAngle = angle;
 				}
 			}
-			heading = Mathf.Repeat(heading, 360.0f);
 
 			var moveLen = 5.0f;
 			Vector3 deltaMove = move3d * moveLen;//new Vector3(move2D.x * moveLen, 0.0f, move2D.y * moveLen);//new Vector3(0.0f, 0.0f, 5.0f);
 			parts.getBodyPose(worldPose);
 			startPose.assign(refPose);
 			startPose.moveTo(worldPose.bodyPos);
-			startPose.rotateAroundBody(heading, Vector3.up);
+
+			var curBodyForward = worldPose.bodyZ;
+			var projectedForward = Vector3.ProjectOnPlane(curBodyForward, Vector3.up).normalized;
+
+			var tanX = projectedForward.z;
+			var tanY = -projectedForward.x;
+			var heading = Mathf.Atan2(tanY, tanX) * Mathf.Rad2Deg;
+			Debug.Log($"Heading: {heading}");
+			
+			if (turnAngle != 0.0f){
+				heading += turnAngle;
+			}
+
+			startPose.rotateAroundBody(-heading, Vector3.up);
 			endPose.assign(startPose);
 			startPose.assign(worldPose);
 			endPose.vecAddWorld(deltaMove);
