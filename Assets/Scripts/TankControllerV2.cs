@@ -9,6 +9,7 @@ using ValueDriver;
 namespace TankV2{
 
 using static CenterOfMassTools;
+using static LegIkSolver;
 
 public class TankControllerV2: MonoBehaviour{
 	public Parts parts = new Parts();
@@ -110,15 +111,7 @@ public class TankControllerV2: MonoBehaviour{
 	Coroutine controlCoroutineObject = null;
 
 	void Start(){
-		gameObject.findTankPart(out parts.turret, "turret");
-		gameObject.findTankPart(out parts.barrel, "barrels");
-		//if (!findTankPart(out body, "body"))
-		parts.body = new Part(gameObject);
-
-		gameObject.findTankLeg(out parts.legRF, true, true, "rf");
-		gameObject.findTankLeg(out parts.legLF, true, false, "lf");
-		gameObject.findTankLeg(out parts.legRB, false, true, "rb");
-		gameObject.findTankLeg(out parts.legLB, false, false, "lb");
+		parts.loadFromObject(gameObject);
 
 		if (ikControl.legRFTarget && parts.legRF.tip.obj)
 			ikControl.legRFTarget.transform.position = parts.legRF.tip.obj.transform.position;
@@ -133,89 +126,6 @@ public class TankControllerV2: MonoBehaviour{
 			ikControl.legLBTarget.transform.position = parts.legLB.tip.obj.transform.position;
 
 		controlCoroutineObject = StartCoroutine(controlCoroutine());
-	}
-
-	void applyLegControl(Leg leg, LegControl legControl){
-		leg.hip.applyHingeAngle(legControl.legYaw);
-		leg.upper.applyHingeAngle(legControl.upperLeg);
-		leg.lower.applyHingeAngle(legControl.lowerLeg);
-	}
-
-
-	void applyControl(){
-		parts.turret.applyHingeAngle(directControl.turretControlAngle);
-		parts.barrel.applyHingeAngle(directControl.barrelControlAngle);
-		applyLegControl(parts.legRF, directControl.legControlRF);
-		applyLegControl(parts.legLF, directControl.legControlLF);
-		applyLegControl(parts.legRB, directControl.legControlRB);
-		applyLegControl(parts.legLB, directControl.legControlLB);
-	}	
-
-	void solveLegKinematics(Leg leg, LegControl legControl, Vector3 worldTargetPos){
-		if (!parts.body.obj || !leg.hip.obj || !leg.upper.obj || !leg.lower.obj || !leg.tip.obj)
-			return;
-
-		var origBodyCoord = Coord.fromTransform(parts.body.defaultTransform);
-		var worldBodyCoord = Coord.fromTransform(parts.body.obj.transform, false);
-		var hipCoord = Coord.fromTransform(leg.hip.defaultTransform);
-		var upperCoord = Coord.fromTransform(leg.upper.defaultTransform);
-		var lowerCoord = Coord.fromTransform(leg.lower.defaultTransform);
-		var tipCoord = Coord.fromTransform(leg.tip.defaultTransform);
-
-		hipCoord = origBodyCoord.inverseTransformCoord(hipCoord);
-		upperCoord = origBodyCoord.inverseTransformCoord(upperCoord);
-		lowerCoord = origBodyCoord.inverseTransformCoord(lowerCoord);
-		tipCoord = origBodyCoord.inverseTransformCoord(tipCoord);
-
-		var hipNode = new IkNode(hipCoord, leg.hip.hinge);
-		var upperNode = new IkNode(upperCoord, leg.upper.hinge);
-		var lowerNode = new IkNode(lowerCoord, leg.lower.hinge);
-		var tipNode = new IkNode(tipCoord, leg.tip.hinge);
-
-		var nodes = new List<IkNode>();
-		nodes.Add(hipNode);
-		nodes.Add(upperNode);
-		nodes.Add(lowerNode);
-		nodes.Add(tipNode);
-
-		for(int i = nodes.Count-1; i > 0; i--){
-			nodes[i].moveToParentSpace(nodes[i-1], true);
-		}
-
-		var targetPos = worldBodyCoord.inverseTransformPoint(worldTargetPos);
-		Solver.solveIkChain(nodes, targetPos, true);
-
-		//updateIkChain(nodes, 0, false, false);
-		var debugCoord = worldBodyCoord;
-		for(int i = 0; (i + 1) < nodes.Count; i++){
-			var node = nodes[i];
-			var nextNode = nodes[i+1];
-			Debug.DrawLine(
-				debugCoord.transformPoint(node.objWorld.pos), 
-				debugCoord.transformPoint(nextNode.objWorld.pos)
-			);
-		}
-		/*
-		if (nodes.Count > 0){
-			Debug.DrawLine(debugCoord.transformPoint(nodes[0].objWorld.pos), debugCoord.transformPoint(targetPos));
-			Debug.DrawLine(debugCoord.transformPoint(nodes[nodes.Count-1].objWorld.pos), debugCoord.transformPoint(targetPos));
-		}
-		*/
-
-		legControl.legYaw = hipNode.jointState.xRotDeg;
-		legControl.upperLeg = upperNode.jointState.xRotDeg;
-		legControl.lowerLeg = lowerNode.jointState.xRotDeg;
-	}
-
-	void solveKinematics(){
-		if (ikControl.legRFTarget && ikControl.legRFTarget.gameObject.activeInHierarchy)
-			solveLegKinematics(parts.legRF, directControl.legControlRF, ikControl.legRFTarget.position);
-		if (ikControl.legRBTarget && ikControl.legRBTarget.gameObject.activeInHierarchy)
-			solveLegKinematics(parts.legRB, directControl.legControlRB, ikControl.legRBTarget.position);
-		if (ikControl.legLFTarget && ikControl.legLFTarget.gameObject.activeInHierarchy)
-			solveLegKinematics(parts.legLF, directControl.legControlLF, ikControl.legLFTarget.position);
-		if (ikControl.legLBTarget && ikControl.legLBTarget.gameObject.activeInHierarchy)
-			solveLegKinematics(parts.legLB, directControl.legControlLB, ikControl.legLBTarget.position);
 	}
 
 	void setRelLegIk(int legIndex, float right, float forward, float height){
@@ -268,14 +178,6 @@ public class TankControllerV2: MonoBehaviour{
 		result.lb = invRelTransformNoScale(bodyT, result.lb);
 
 		return result;
-	}
-
-	float sawFunc(float t){
-		t = Mathf.Repeat(t, 1.0f);
-		float t0 = 0.25f;
-		if (t <= t0)
-			return Mathf.Lerp(0.0f, 1.0f, Mathf.Clamp01(t/t0));
-		return Mathf.Lerp(1.0f, 0.0f, Mathf.Clamp01((t - t0)/(1.0f - t0)));
 	}
 
 	void combineIks(LegRelIk result, LinkedList<LegRelIk> iks, LegRelIk untilIk){
@@ -612,15 +514,14 @@ public class TankControllerV2: MonoBehaviour{
 		yield break;
 	}
 
-
 	IEnumerator controlCoroutine(){
 		yield return walk02();
 	}
 
 	void Update(){
 		gaitGenerator.update();
-		solveKinematics();
-		applyControl();		
+		parts.solveKinematics(directControl, ikControl);
+		parts.applyControl(directControl);
 	}
 }
 

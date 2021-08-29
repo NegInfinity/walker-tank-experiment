@@ -12,7 +12,7 @@ namespace TankV2{
 public class LegControl{
 	public float legYaw = 0.0f;
 	public float upperLeg = 0.0f;
-	public float lowerLeg = 0.0f;
+	public float lowerLeg = 0.0f;	
 }
 
 }

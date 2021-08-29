@@ -16,6 +16,12 @@ public struct Leg{
 	public Part tip;
 	public bool right;
 	public bool front;
+
+	public void applyControl(LegControl legControl){
+		hip.applyHingeAngle(legControl.legYaw);
+		upper.applyHingeAngle(legControl.upperLeg);
+		lower.applyHingeAngle(legControl.lowerLeg);
+	}
 }
 
 }

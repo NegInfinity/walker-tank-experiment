@@ -9,6 +9,7 @@ using ValueDriver;
 namespace TankV2{
 
 using static CenterOfMassTools;
+using static LegIkSolver;
 
 [System.Serializable]
 public class Parts{
@@ -66,6 +67,41 @@ public class Parts{
 		}
 
 		return (centerOfMass, mass);
+	}
+
+	public void applyControl(DirectControl directControl){
+		turret.applyHingeAngle(directControl.turretControlAngle);
+		barrel.applyHingeAngle(directControl.barrelControlAngle);
+		legRF.applyControl(directControl.legControlRF);
+		legLF.applyControl(directControl.legControlLF);
+		legRB.applyControl(directControl.legControlRB);
+		legLB.applyControl(directControl.legControlLB);
+	}	
+
+	public void loadFromObject(GameObject gameObject){
+		if (!gameObject)
+			return;
+
+		gameObject.findTankPart(out turret, "turret");
+		gameObject.findTankPart(out barrel, "barrels");
+		//if (!findTankPart(out body, "body"))
+		body = new Part(gameObject);
+
+		gameObject.findTankLeg(out legRF, true, true, "rf");
+		gameObject.findTankLeg(out legLF, true, false, "lf");
+		gameObject.findTankLeg(out legRB, false, true, "rb");
+		gameObject.findTankLeg(out legLB, false, false, "lb");
+	}
+
+	public void solveKinematics(DirectControl outDirectCtrl, IkControl inIkCtrl){
+		if (inIkCtrl.legRFTarget && inIkCtrl.legRFTarget.gameObject.activeInHierarchy)
+			solveLegKinematics(body, legRF, outDirectCtrl.legControlRF, inIkCtrl.legRFTarget.position);
+		if (inIkCtrl.legRBTarget && inIkCtrl.legRBTarget.gameObject.activeInHierarchy)
+			solveLegKinematics(body, legRB, outDirectCtrl.legControlRB, inIkCtrl.legRBTarget.position);
+		if (inIkCtrl.legLFTarget && inIkCtrl.legLFTarget.gameObject.activeInHierarchy)
+			solveLegKinematics(body, legLF, outDirectCtrl.legControlLF, inIkCtrl.legLFTarget.position);
+		if (inIkCtrl.legLBTarget && inIkCtrl.legLBTarget.gameObject.activeInHierarchy)
+			solveLegKinematics(body, legLB, outDirectCtrl.legControlLB, inIkCtrl.legLBTarget.position);
 	}
 }
 
