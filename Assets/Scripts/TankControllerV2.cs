@@ -10,6 +10,8 @@ namespace TankV2{
 
 using static CenterOfMassTools;
 using static LegIkSolver;
+using static TankExtensions;
+using static GizmoTools;
 
 public class TankControllerV2: MonoBehaviour{
 	public Parts parts = new Parts();
@@ -18,31 +20,6 @@ public class TankControllerV2: MonoBehaviour{
 
 	public Cinemachine.CinemachineVirtualCamera followCam = null;
 	public LayerMask groundMask = -1;
-
-	void drawConnectionLine(Part a, Part b){
-		drawConnectionLine(a.obj, b.obj);
-	}
-
-	void drawGizmoPoint(Vector3 pos, float size){
-		var x = transform.right * size * 0.5f;
-		var y = transform.up * size * 0.5f;
-		var z = transform.forward * size * 0.5f;
-		Gizmos.DrawLine(pos - x, pos + x);
-		Gizmos.DrawLine(pos - y, pos + y);
-		Gizmos.DrawLine(pos - z, pos + z);
-	}
-
-	void drawConnectionLine(GameObject a, GameObject b){
-		if (!a || !b)
-			return;
-		Gizmos.DrawLine(a.transform.position, b.transform.position);
-	}
-
-	void drawCenterOfMass(Part part){
-		if (!part.rigBody)
-			return;
-		drawGizmoPoint(part.rigBody.worldCenterOfMass, 0.25f);
-	}
 
 	void drawLegGizmo(Leg leg){
 		drawConnectionLine(parts.body, leg.hip);
@@ -128,77 +105,10 @@ public class TankControllerV2: MonoBehaviour{
 		controlCoroutineObject = StartCoroutine(controlCoroutine());
 	}
 
-	void setRelLegIk(int legIndex, float right, float forward, float height){
-		var target = ikControl.getLegIkTarget(legIndex);
-		var rightVec = parts.body.obj.transform.right;
-		var forwardVec = parts.body.obj.transform.forward;
-		var upVec = parts.body.obj.transform.up;
-		var pos = parts.body.objWorldPos;
-
-		target.transform.position = pos 
-			+ right * rightVec + forward * forwardVec 
-			+ upVec * height;
-	}
-
-	void setRelLegIk(int legIndex, Vector3 coord){
-		setRelLegIk(legIndex, coord.x, coord.z, coord.y);
-	}
-
-	void setRelLegIk(Vector3 lf, Vector3 rf, Vector3 lb, Vector3 rb){
-		setRelLegIk(0, lf);
-		setRelLegIk(1, rf);
-		setRelLegIk(2, lb);
-		setRelLegIk(3, rb);
-	}
-
-	void setRelLegIk(LegRelIk relIk){
-		setRelLegIk(relIk.lf, relIk.rf, relIk.lb, relIk.rb);
-	}
-
-	Vector3 invRelTransformNoScale(Transform t, Vector3 p){
-		var diff = p - t.position;
-		return new Vector3(
-			Vector3.Dot(diff, t.right),
-			Vector3.Dot(diff, t.up),
-			Vector3.Dot(diff, t.forward)
-		);
-	}
-
-	LegRelIk getLegRelIk(bool fromTargets){
-		var result = new LegRelIk();
-		result.rf = fromTargets ? ikControl.legRFTarget.position: parts.legRF.tip.objWorldPos;
-		result.lf = fromTargets ? ikControl.legLFTarget.position: parts.legLF.tip.objWorldPos;
-		result.rb = fromTargets ? ikControl.legRBTarget.position: parts.legRB.tip.objWorldPos;
-		result.lb = fromTargets ? ikControl.legLBTarget.position: parts.legLB.tip.objWorldPos;
-
-		var bodyT = parts.body.obj.transform;
-		result.rf = invRelTransformNoScale(bodyT, result.rf);
-		result.rb = invRelTransformNoScale(bodyT, result.rb);
-		result.lf = invRelTransformNoScale(bodyT, result.lf);
-		result.lb = invRelTransformNoScale(bodyT, result.lb);
-
-		return result;
-	}
-
-	void combineIks(LegRelIk result, LinkedList<LegRelIk> iks, LegRelIk untilIk){
-		result.setVec(Vector3.zero);
-		bool first = true;
-		foreach(var cur in iks){
-			if (cur == untilIk)
-				break;
-			if (first){
-				result.assign(cur);
-				first = false;
-			}
-			else
-				result.addIk(cur);
-		}
-	}
-
 	public GaitGenerator gaitGenerator = new GaitGenerator();
 
 	IEnumerator walk01(){
-		var legIk = getLegRelIk(false);
+		var legIk = parts.getLegRelIk();
 
 		var sideOffset = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => Mathf.Abs(v.x)).Average();
 		var forwardOffset = MathTools.seq(legIk.rf, legIk.lf).Select(v => v.z).Average();
@@ -226,12 +136,12 @@ public class TankControllerV2: MonoBehaviour{
 		var legMoveIk = new LegRelIk();
 		iks.AddLast(legMoveIk);
 
-		setRelLegIk(legIk);
+		ikControl.setRelLegIk(legIk);
 
 		var combinedIk = new LegRelIk();
 		System.Action updRelIk = () => {
 			combineIks(combinedIk, iks, null);
-			setRelLegIk(combinedIk);
+			ikControl.setRelLegIk(combinedIk);
 		};
 
 		yield return new WaitForSeconds(1.0f);
@@ -335,7 +245,7 @@ public class TankControllerV2: MonoBehaviour{
 	}
 
 	IEnumerator walk02(){
-		var legIk = getLegRelIk(false);
+		var legIk = parts.getLegRelIk();
 
 		var sideOffset = MathTools.seq(legIk.rf, legIk.rb, legIk.lf, legIk.lb).Select(v => Mathf.Abs(v.x)).Average();
 		var forwardOffset = MathTools.seq(legIk.rf, legIk.lf).Select(v => v.z).Average();
@@ -360,9 +270,8 @@ public class TankControllerV2: MonoBehaviour{
 		var combinedIk = new LegRelIk();
 		System.Action updRelIk = () => {
 			combineIks(combinedIk, iks, null);
-			setRelLegIk(combinedIk);
+			ikControl.setRelLegIk(combinedIk);
 		};
-
 
 		yield return new WaitForSeconds(1.0f);
 		var extX = 2.5f;
@@ -505,7 +414,7 @@ public class TankControllerV2: MonoBehaviour{
 				}
 
 				lerpPose.getRelIk(relPose);
-				setRelLegIk(relPose);
+				ikControl.setRelLegIk(relPose);
 				yield return null;
 			}
 

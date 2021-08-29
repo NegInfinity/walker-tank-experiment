@@ -32,6 +32,30 @@ public static class TankExtensions{
 		gameObject.findTankPart(out leg.lower, $"lowerleg{suffix}");
 		gameObject.findTankPart(out leg.tip, $"tip{suffix}");
 	}
+
+	public static Vector3 invRelTransformNoScale(Transform t, Vector3 p){
+		var diff = p - t.position;
+		return new Vector3(
+			Vector3.Dot(diff, t.right),
+			Vector3.Dot(diff, t.up),
+			Vector3.Dot(diff, t.forward)
+		);
+	}
+
+	public static void combineIks(LegRelIk result, LinkedList<LegRelIk> iks, LegRelIk untilIk){
+		result.setVec(Vector3.zero);
+		bool first = true;
+		foreach(var cur in iks){
+			if (cur == untilIk)
+				break;
+			if (first){
+				result.assign(cur);
+				first = false;
+			}
+			else
+				result.addIk(cur);
+		}
+	}
 }
 
 }

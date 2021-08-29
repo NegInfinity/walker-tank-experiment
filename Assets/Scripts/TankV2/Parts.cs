@@ -10,6 +10,7 @@ namespace TankV2{
 
 using static CenterOfMassTools;
 using static LegIkSolver;
+using static TankExtensions;
 
 [System.Serializable]
 public class Parts{
@@ -102,6 +103,22 @@ public class Parts{
 			solveLegKinematics(body, legLF, outDirectCtrl.legControlLF, inIkCtrl.legLFTarget.position);
 		if (inIkCtrl.legLBTarget && inIkCtrl.legLBTarget.gameObject.activeInHierarchy)
 			solveLegKinematics(body, legLB, outDirectCtrl.legControlLB, inIkCtrl.legLBTarget.position);
+	}
+
+	public LegRelIk getLegRelIk(){
+		var result = new LegRelIk();
+		result.rf = legRF.tip.objWorldPos;
+		result.lf = legLF.tip.objWorldPos;
+		result.rb = legRB.tip.objWorldPos;
+		result.lb = legLB.tip.objWorldPos;
+
+		var bodyT = body.obj.transform;
+		result.rf = invRelTransformNoScale(bodyT, result.rf);
+		result.rb = invRelTransformNoScale(bodyT, result.rb);
+		result.lf = invRelTransformNoScale(bodyT, result.lf);
+		result.lb = invRelTransformNoScale(bodyT, result.lb);
+
+		return result;
 	}
 }
 

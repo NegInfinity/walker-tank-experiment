@@ -1674,6 +1674,7 @@ MonoBehaviour:
       upperLeg: 0
       lowerLeg: 0
   ikControl:
+    body: {fileID: 453142441}
     legRFTarget: {fileID: 2021890011}
     legRBTarget: {fileID: 1168375800}
     legLFTarget: {fileID: 574753562}
