@@ -244,6 +244,82 @@ public class TankControllerV2: MonoBehaviour{
 		}
 	}
 
+	/*
+	https://easings.net/#easeInSine
+	function easeInSine(x: number): number {
+			return 1 - cos((x * PI) / 2);
+	}
+	*/
+	float easeFunc(float x){
+		return 1.0f - Mathf.Cos((x * Mathf.PI) * 0.5f);
+	}
+
+	IEnumerator moveLeg(int legInedx, BodyPose startPose, BodyPose endPose, 
+			BodyPose lerpPose, LegRelIk relPose, float legRaiseHeight){
+		yield return null;
+	}
+
+	IEnumerator playStepAnimationSequence2(BodyPose startPose, BodyPose endPose, 
+			BodyPose lerpPose, LegRelIk relPose, float legRaiseHeight){
+
+		for(int i = 0; i < 4; i++){
+			yield return moveLeg(i, startPose, endPose, lerpPose, relPose, legRaiseHeight);
+		}
+	}
+
+	IEnumerator playStepAnimationSequence(BodyPose startPose, BodyPose endPose, 
+			BodyPose lerpPose, LegRelIk relPose, float legRaiseHeight){
+		float t = 0;
+		float duration = 4.0f;
+
+		int[] legRemap = new int[]{0, 1, 2, 3};
+		while(t < duration){
+			t += Time.deltaTime;
+			float relT = Mathf.Clamp01(t/duration);
+			var bodyLerp = relT;
+			lerpPose.assign(startPose);
+			lerpPose.bodyPos = Vector3.Lerp(startPose.bodyPos, endPose.bodyPos, bodyLerp);
+			lerpPose.bodyRot = Quaternion.Lerp(startPose.bodyRot, endPose.bodyRot, bodyLerp);
+
+			var legT = bodyLerp * 4.0f;
+			var legRelT = Mathf.Repeat(legT, 1.0f);
+			var legLerp = Mathf.Clamp01(easeFunc(legRelT));
+			var currentLeg = Mathf.Clamp(Mathf.FloorToInt(legT), 0, 3);
+			int numLegs = 4;
+			var raisePulse = Mathf.Sin(Mathf.PI * legRelT);
+
+			for(int i = 0; i < currentLeg; i++){
+				lerpPose.setLeg(
+					legRemap[i], 
+					endPose.getLeg(legRemap[i])
+				);
+			}
+			lerpPose.setLeg(
+				legRemap[currentLeg], 
+				Vector3.Lerp(
+					startPose.getLeg(legRemap[currentLeg]), 
+					endPose.getLeg(legRemap[currentLeg]), 
+					legLerp
+				)
+			);
+			lerpPose.legAddWorld(legRemap[currentLeg], Vector3.up * legRaiseHeight * raisePulse);
+			for(int i = currentLeg + 1; i < numLegs; i++){
+				lerpPose.setLeg(
+					legRemap[i], 
+					startPose.getLeg(legRemap[i])
+				);
+			}
+
+			lerpPose.getRelIk(relPose);
+			ikControl.setRelLegIk(relPose);
+			yield return null;
+		}
+		yield break;
+	}
+
+	float jumpCharge = 0.0f;
+	float jumpValue = 0.0f;
+
 	IEnumerator walk02(){
 		var legIk = parts.getLegRelIk();
 
@@ -312,12 +388,8 @@ public class TankControllerV2: MonoBehaviour{
 		var worldPose = new BodyPose();
 
 		var relPose = new LegRelIk();
-		int[] legRemap = new int[]{0, 1, 2, 3};
 		float legRaiseHeight = 2.0f;
 		while(true){
-			float t = 0;
-			float duration = 4.0f;
-
 			var move2D = new Vector2(
 				Input.GetAxis("Horizontal"),
 				Input.GetAxis("Vertical")
@@ -365,7 +437,7 @@ public class TankControllerV2: MonoBehaviour{
 			var tanY = -projectedForward.x;
 			var heading = Mathf.Atan2(tanY, tanX) * Mathf.Rad2Deg;
 			Debug.Log($"Heading: {heading}");
-			
+
 			if (turnAngle != 0.0f){
 				heading += turnAngle;
 			}
@@ -378,58 +450,7 @@ public class TankControllerV2: MonoBehaviour{
 			startPose.adjustPositionsToWorld(groundMask, Vector3.up, legRaiseHeight * 1.5f, legRaiseHeight * 2.5f, 5.0f);
 			endPose.adjustPositionsToWorld(groundMask, Vector3.up, legRaiseHeight * 1.5f, legRaiseHeight * 2.5f, 5.0f);
 
-			while(t < duration){
-				t += Time.deltaTime;
-				float relT = Mathf.Clamp01(t/duration);
-				var bodyLerp = relT;
-				//var bodyLerp = -Mathf.Cos(Mathf.PI * relT) * 0.5f + 0.5f;
-				lerpPose.assign(startPose);
-				lerpPose.bodyPos = Vector3.Lerp(startPose.bodyPos, endPose.bodyPos, bodyLerp);
-				lerpPose.bodyRot = Quaternion.Lerp(startPose.bodyRot, endPose.bodyRot, bodyLerp);
-
-				var legT = bodyLerp * 4.0f;
-				var legRelT = Mathf.Repeat(legT, 1.0f);
-				/*
-				https://easings.net/#easeInSine
-				function easeInSine(x: number): number {
- 					 return 1 - cos((x * PI) / 2);
-				}
-				*/
-				var legLerp = Mathf.Clamp01(
-					//legRelT * legRelT
-					1.0f - Mathf.Cos((legRelT * Mathf.PI) * 0.5f)
-				);
-				var currentLeg = Mathf.Clamp(Mathf.FloorToInt(legT), 0, 3);
-				int numLegs = 4;
-				var raisePulse = Mathf.Sin(Mathf.PI * legRelT);
-
-				for(int i = 0; i < currentLeg; i++){
-					lerpPose.setLeg(
-						legRemap[i], 
-						endPose.getLeg(legRemap[i])
-					);
-				}
-				lerpPose.setLeg(
-					legRemap[currentLeg], 
-					Vector3.Lerp(
-						startPose.getLeg(legRemap[currentLeg]), 
-						endPose.getLeg(legRemap[currentLeg]), 
-						legLerp
-					)
-				);
-				lerpPose.legAddWorld(legRemap[currentLeg], Vector3.up * legRaiseHeight * raisePulse);
-				for(int i = currentLeg + 1; i < numLegs; i++){
-					lerpPose.setLeg(
-						legRemap[i], 
-						startPose.getLeg(legRemap[i])
-					);
-				}
-
-				lerpPose.getRelIk(relPose);
-				ikControl.setRelLegIk(relPose);
-				yield return null;
-			}
-
+			yield return playStepAnimationSequence(startPose, endPose, lerpPose, relPose, legRaiseHeight);
 		}
 
 		yield break;
@@ -440,6 +461,13 @@ public class TankControllerV2: MonoBehaviour{
 	}
 
 	void Update(){
+		if (Input.GetKey(KeyCode.Space)){
+			jumpCharge = Mathf.Clamp01(jumpCharge + Time.deltaTime);
+		}
+		else{
+			jumpValue = jumpCharge;
+			jumpCharge = 0.0f;
+		}
 		gaitGenerator.update();
 		parts.solveKinematics(directControl, ikControl);
 		parts.applyControl(directControl);
